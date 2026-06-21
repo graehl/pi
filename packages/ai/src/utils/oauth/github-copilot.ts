@@ -176,6 +176,14 @@ async function startDeviceFlow(domain: string): Promise<DeviceCodeResponse> {
 		throw new Error("Invalid device code response fields");
 	}
 
+	// GitHub occasionally returns a structurally valid response whose device_code
+	// (or user_code) is blank. The type guard above accepts "" as a string, so
+	// without this check the empty code would be polled and rejected downstream as
+	// `incorrect_device_code` -- a misleading symptom far from the real cause.
+	if (deviceCode.trim() === "" || userCode.trim() === "") {
+		throw new Error("GitHub returned a blank device code; please start the login again.");
+	}
+
 	// The verification URI is opened in the user's browser and to prevent `open` from
 	// opening an executable or similar, we force it to be a URL.
 	let parsedUri: URL;
@@ -203,11 +211,14 @@ async function pollForGitHubAccessToken(
 	signal?: AbortSignal,
 ): Promise<string> {
 	const urls = getUrls(domain);
+	let pollCount = 0;
+	const startedAt = Date.now();
 	return pollOAuthDeviceCodeFlow<string>({
 		intervalSeconds: device.interval,
 		expiresInSeconds: device.expires_in,
 		signal,
 		poll: async () => {
+			pollCount += 1;
 			const raw = await fetchJson(urls.accessTokenUrl, {
 				method: "POST",
 				headers: {
@@ -238,11 +249,16 @@ async function pollForGitHubAccessToken(
 
 				// GitHub did not recognize the device code (it was never issued, already
 				// redeemed, or expired). There is nothing to recover in-flight, so guide
-				// the user to start a fresh login rather than surfacing the raw code.
+				// the user to start a fresh login. The diagnostics distinguish a blank or
+				// truncated issued code from a full code that GitHub's token endpoint
+				// rejected on the first poll (a backend race) -- decisive if this recurs.
 				if (error === "incorrect_device_code" || error === "expired_token") {
+					const elapsedSec = Math.round((Date.now() - startedAt) / 1000);
 					return {
 						status: "failed",
-						message: `GitHub did not accept the login (${error}); please start the login again.`,
+						message:
+							`GitHub did not accept the login (${error}). Please start the login again. ` +
+							`[device_code length ${device.device_code.length}, poll #${pollCount}, ${elapsedSec}s elapsed]`,
 					};
 				}
 

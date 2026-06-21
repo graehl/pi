@@ -428,11 +428,52 @@ describe("GitHub Copilot OAuth device flow", () => {
 
 		vi.stubGlobal("fetch", fetchMock);
 
+		const error = await loginGitHubCopilot({
+			onDeviceCode: () => {},
+			onPrompt: async () => "",
+		}).then(
+			() => undefined,
+			(e: unknown) => e,
+		);
+		expect(error).toBeInstanceOf(Error);
+		const message = (error as Error).message;
+		// User-facing and actionable.
+		expect(message).toContain("GitHub did not accept the login (incorrect_device_code).");
+		expect(message).toContain("Please start the login again.");
+		// Diagnostics that make a recurrence report conclusive: the issued code's
+		// length (11 here, a full code) and that it failed on the very first poll
+		// distinguish a backend race from a blank/truncated code.
+		expect(message).toContain("device_code length 11");
+		expect(message).toContain("poll #1");
+	});
+
+	it("rejects a blank device_code before it reaches onDeviceCode", async () => {
+		// GitHub occasionally returns a blank device_code in an otherwise valid
+		// response. Polling it would fail downstream as `incorrect_device_code`, so
+		// reject at the source with a message naming the real cause.
+		const fetchMock = vi.fn(async (input: unknown): Promise<Response> => {
+			const url = getUrl(input);
+			if (url.endsWith("/login/device/code")) {
+				return jsonResponse({
+					device_code: "",
+					user_code: "ABCD-EFGH",
+					verification_uri: "https://github.com/login/device",
+					interval: 5,
+					expires_in: 900,
+				});
+			}
+			throw new Error(`Unexpected fetch URL: ${url}`);
+		});
+
+		vi.stubGlobal("fetch", fetchMock);
+
+		const onDeviceCode = vi.fn();
 		await expect(
 			loginGitHubCopilot({
-				onDeviceCode: () => {},
+				onDeviceCode,
 				onPrompt: async () => "",
 			}),
-		).rejects.toThrow("GitHub did not accept the login (incorrect_device_code); please start the login again.");
+		).rejects.toThrow(/blank device code/i);
+		expect(onDeviceCode).not.toHaveBeenCalled();
 	});
 });

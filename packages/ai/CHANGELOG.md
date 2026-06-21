@@ -4,7 +4,7 @@
 
 ### Fixed
 
-- Fixed GitHub Copilot device-code login to show an actionable retry message when GitHub rejects the device code (`incorrect_device_code`/`expired_token`) instead of surfacing the raw error code ([#5928](https://github.com/earendil-works/pi/issues/5928)).
+- Fixed GitHub Copilot device-code login: a rejected device code (`incorrect_device_code`/`expired_token`) now fails with an actionable retry message instead of a raw error code; a blank device code from GitHub is rejected at the source rather than polled into that same error; and the rejection carries diagnostics (issued code length, poll count, elapsed time) so a recurrence is reportable ([#5928](https://github.com/earendil-works/pi/issues/5928)).
 
 ## [0.79.9] - 2026-06-20
 
