@@ -397,4 +397,42 @@ describe("GitHub Copilot OAuth device flow", () => {
 
 		expect(accessTokenPollTimes).toEqual([startTime.getTime(), startTime.getTime() + 10000]);
 	});
+
+	it("surfaces an actionable retry message when GitHub rejects the device code", async () => {
+		// GitHub returns `incorrect_device_code` when the polled code was never
+		// issued, already redeemed, or expired. There is nothing to recover, so the
+		// failure should tell the user to start the login again rather than leaking
+		// the raw error code as the whole message.
+		const fetchMock = vi.fn(async (input: unknown): Promise<Response> => {
+			const url = getUrl(input);
+
+			if (url.endsWith("/login/device/code")) {
+				return jsonResponse({
+					device_code: "device-code",
+					user_code: "ABCD-EFGH",
+					verification_uri: "https://github.com/login/device",
+					interval: 5,
+					expires_in: 900,
+				});
+			}
+
+			if (url.endsWith("/login/oauth/access_token")) {
+				return jsonResponse({
+					error: "incorrect_device_code",
+					error_description: "The device_code provided is not valid.",
+				});
+			}
+
+			throw new Error(`Unexpected fetch URL: ${url}`);
+		});
+
+		vi.stubGlobal("fetch", fetchMock);
+
+		await expect(
+			loginGitHubCopilot({
+				onDeviceCode: () => {},
+				onPrompt: async () => "",
+			}),
+		).rejects.toThrow("GitHub did not accept the login (incorrect_device_code); please start the login again.");
+	});
 });

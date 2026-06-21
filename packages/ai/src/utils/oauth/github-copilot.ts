@@ -236,6 +236,16 @@ async function pollForGitHubAccessToken(
 					return { status: "slow_down" };
 				}
 
+				// GitHub did not recognize the device code (it was never issued, already
+				// redeemed, or expired). There is nothing to recover in-flight, so guide
+				// the user to start a fresh login rather than surfacing the raw code.
+				if (error === "incorrect_device_code" || error === "expired_token") {
+					return {
+						status: "failed",
+						message: `GitHub did not accept the login (${error}); please start the login again.`,
+					};
+				}
+
 				const descriptionSuffix = description ? `: ${description}` : "";
 				return { status: "failed", message: `Device flow failed: ${error}${descriptionSuffix}` };
 			}
