@@ -18,6 +18,7 @@ import { createJiti } from "jiti/static";
 // The virtualModules option then makes them available to extensions.
 import * as _bundledTypebox from "typebox";
 import * as _bundledTypeboxCompile from "typebox/compile";
+import * as _bundledTypeboxSchema from "typebox/schema";
 import * as _bundledTypeboxValue from "typebox/value";
 import { CONFIG_DIR_NAME, getAgentDir, isBunBinary } from "../../config.ts";
 // NOTE: This import works because loader.ts exports are NOT re-exported from index.ts,
@@ -44,9 +45,11 @@ import type {
 const VIRTUAL_MODULES: Record<string, unknown> = {
 	typebox: _bundledTypebox,
 	"typebox/compile": _bundledTypeboxCompile,
+	"typebox/schema": _bundledTypeboxSchema,
 	"typebox/value": _bundledTypeboxValue,
 	"@sinclair/typebox": _bundledTypebox,
 	"@sinclair/typebox/compile": _bundledTypeboxCompile,
+	"@sinclair/typebox/schema": _bundledTypeboxSchema,
 	"@sinclair/typebox/value": _bundledTypeboxValue,
 	"@earendil-works/pi-agent-core": _bundledPiAgentCore,
 	"@earendil-works/pi-tui": _bundledPiTui,
@@ -81,6 +84,7 @@ function getAliases(): Record<string, string> {
 
 	const typeboxEntry = require.resolve("typebox");
 	const typeboxCompileEntry = require.resolve("typebox/compile");
+	const typeboxSchemaEntry = require.resolve("typebox/schema");
 	const typeboxValueEntry = require.resolve("typebox/value");
 
 	const packagesRoot = path.resolve(__dirname, "../../../../");
@@ -116,9 +120,11 @@ function getAliases(): Record<string, string> {
 		"@mariozechner/pi-ai/oauth": piAiOauthEntry,
 		typebox: typeboxEntry,
 		"typebox/compile": typeboxCompileEntry,
+		"typebox/schema": typeboxSchemaEntry,
 		"typebox/value": typeboxValueEntry,
 		"@sinclair/typebox": typeboxEntry,
 		"@sinclair/typebox/compile": typeboxCompileEntry,
+		"@sinclair/typebox/schema": typeboxSchemaEntry,
 		"@sinclair/typebox/value": typeboxValueEntry,
 	};
 
